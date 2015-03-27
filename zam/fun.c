@@ -92,22 +92,22 @@ void activate_voicebox(VoiceBox * Instance) {
 void select_robot(VoiceBox * Instance) {
 	VoiceBox * ptr = (VoiceBox *)Instance;
 	ptr->semitone = -3.f;
-	ptr->drylevel = 1.f;
-	ptr->wetlevel = 1.f;
+	ptr->drylevel = 0.f;
+	ptr->wetlevel = 0.f;
 }
 
 void select_alien(VoiceBox * Instance) {
 	VoiceBox * ptr = (VoiceBox *)Instance;
 	ptr->semitone = -9.f;
-	ptr->drylevel = 0.f;
-	ptr->wetlevel = 1.f;
+	ptr->drylevel = -90.f;
+	ptr->wetlevel = 0.f;
 }
 
 void select_girl(VoiceBox * Instance) {
 	VoiceBox * ptr = (VoiceBox *)Instance;
 	ptr->semitone = 3.f;
-	ptr->drylevel = 0.f;
-	ptr->wetlevel = 1.f;
+	ptr->drylevel = -90.f;
+	ptr->wetlevel = 0.f;
 }
 
 void run_voicebox(VoiceBox * Instance, float *inf, float *outf, unsigned long SampleCount) {

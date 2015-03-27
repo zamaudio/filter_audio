@@ -164,7 +164,7 @@ Filter_Audio *new_filter_audio(uint32_t fs)
     f_a->noise_enabled = 1;
     f_a->voicetype = VOICE_NORMAL;
 
-    select_voicebox(f_a, VOICE_ROBOT);
+    select_voicebox(f_a, VOICE_GIRL);
 
     if (f_a->fs == 48000) {
         int quality = 4;

@@ -25,6 +25,8 @@ typedef struct {
     FilterStateZam lpfa;
     FilterStateZam lpfb;
 
+    VoiceBox *voicebox;
+
     SpeexResamplerState *downsampler;
     SpeexResamplerState *upsampler;
 
@@ -36,7 +38,13 @@ typedef struct {
     int echo_enabled;
     int gain_enabled;
     int noise_enabled;
+    int voicetype;
 } Filter_Audio;
+
+#define VOICE_NORMAL 0
+#define VOICE_ROBOT 1
+#define VOICE_ALIEN 2
+#define VOICE_GIRL 3
 
 #define _FILTER_AUDIO
 #include "filter_audio.h"
@@ -47,12 +55,36 @@ void kill_filter_audio(Filter_Audio *f_a)
         return;
     }
 
+    cleanup_voicebox(f_a->voicebox);
     WebRtcNsx_Free(f_a->noise_sup_x);
     WebRtcAgc_Free(f_a->gain_control);
     WebRtcAec_Free(f_a->echo_cancellation);
     speex_resampler_destroy(f_a->upsampler);
     speex_resampler_destroy(f_a->downsampler);
     free(f_a);
+}
+
+int select_voicebox(Filter_Audio *f_a, int voicetype)
+{
+    if (!f_a) {
+        return -1;
+    }
+
+    f_a->voicetype = voicetype;
+    switch (voicetype) {
+    case VOICE_ROBOT:
+        select_robot(f_a->voicebox);
+        break;
+    case VOICE_ALIEN:
+        select_alien(f_a->voicebox);
+        break;
+    case VOICE_GIRL:
+        select_girl(f_a->voicebox);
+        break;
+    default:
+        break;
+    }
+    return 0;
 }
 
 Filter_Audio *new_filter_audio(uint32_t fs)
@@ -77,7 +109,9 @@ Filter_Audio *new_filter_audio(uint32_t fs)
     init_highpass_filter_zam(&f_a->hpfb, 100, (float) f_a->fs);
     init_lowpass_filter_zam(&f_a->lpfa, 12000, (float) f_a->fs);
     init_lowpass_filter_zam(&f_a->lpfb, 12000, (float) f_a->fs);
-
+    f_a->voicebox = instantiate_voicebox(f_a->fs);
+    activate_voicebox(f_a->voicebox);
+    
     if (WebRtcAgc_Create(&f_a->gain_control) == -1) {
         free(f_a);
         return NULL;
@@ -128,6 +162,9 @@ Filter_Audio *new_filter_audio(uint32_t fs)
     f_a->echo_enabled = 1;
     f_a->gain_enabled = 1;
     f_a->noise_enabled = 1;
+    f_a->voicetype = VOICE_NORMAL;
+
+    select_voicebox(f_a, VOICE_ROBOT);
 
     if (f_a->fs == 48000) {
         int quality = 4;
@@ -153,6 +190,7 @@ int enable_disable_filters(Filter_Audio *f_a, int echo, int noise, int gain)
     f_a->noise_enabled = noise;
     return 0;
 }
+
 
 static void downsample_audio_echo_in(Filter_Audio *f_a, int16_t *out, const int16_t *in)
 {
@@ -301,18 +339,32 @@ int filter_audio(Filter_Audio *f_a, int16_t *data, unsigned int samples)
             float d_f_u[480] = { 0 };
             upsample_audio(f_a, data + resampled_samples, 480, d_l, d_h, nsx_samples);
             S16ToFloatS16(data + resampled_samples, 480, d_f_u);
-            run_filter_zam(&f_a->hpfa, d_f_u, 480);
-            run_filter_zam(&f_a->hpfb, d_f_u, 480);
-            run_filter_zam(&f_a->lpfa, d_f_u, 480);
-            run_filter_zam(&f_a->lpfb, d_f_u, 480);
-            FloatS16ToS16(d_f_u, 480, data + resampled_samples);
+	    switch (f_a->voicetype) {
+                case VOICE_NORMAL:
+                    run_filter_zam(&f_a->hpfa, d_f_u, 480);
+                    run_filter_zam(&f_a->hpfb, d_f_u, 480);
+                    run_filter_zam(&f_a->lpfa, d_f_u, 480);
+                    run_filter_zam(&f_a->lpfb, d_f_u, 480);
+		break;
+                default:
+                    run_voicebox(f_a->voicebox, d_f_u, d_f_u, 480);
+                break;
+            }
+	    FloatS16ToS16(d_f_u, 480, data + resampled_samples);
             resampled_samples += 480;
         } else {
             S16ToFloatS16(d_l, nsx_samples, d_f_l);
-            run_filter_zam(&f_a->hpfa, d_f_l, nsx_samples);
-            run_filter_zam(&f_a->hpfb, d_f_l, nsx_samples);
-            run_filter_zam(&f_a->lpfa, d_f_l, nsx_samples);
-            run_filter_zam(&f_a->lpfb, d_f_l, nsx_samples);
+	    switch (f_a->voicetype) {
+                case VOICE_NORMAL:
+                    run_filter_zam(&f_a->hpfa, d_f_l, nsx_samples);
+                    run_filter_zam(&f_a->hpfb, d_f_l, nsx_samples);
+                    run_filter_zam(&f_a->lpfa, d_f_l, nsx_samples);
+                    run_filter_zam(&f_a->lpfb, d_f_l, nsx_samples);
+                break;
+                default:
+                    run_voicebox(f_a->voicebox, d_f_l, d_f_l, nsx_samples);
+                break;
+            }
             FloatS16ToS16(d_f_l, nsx_samples, d_l);
             memcpy(data + (samples - temp_samples), d_l, sizeof(d_l));
         }

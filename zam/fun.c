@@ -99,7 +99,7 @@ void select_robot(VoiceBox * Instance) {
 void select_alien(VoiceBox * Instance) {
 	VoiceBox * ptr = (VoiceBox *)Instance;
 	ptr->semitone = -9.f;
-	ptr->drylevel = -90.f;
+	ptr->drylevel = -10.f;
 	ptr->wetlevel = 0.f;
 }
 
